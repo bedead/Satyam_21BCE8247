@@ -34,14 +34,6 @@ def get_possible_moves(piece_type, x, y, board_size=5):
     return possible_moves
 
 
-def generate_random_username():
-    adjectives = ["Swift", "Silent", "Mighty", "Brave", "Fierce"]
-    nouns = ["Tiger", "Eagle", "Shark", "Lion", "Wolf"]
-    adjective = random.choice(adjectives)
-    noun = random.choice(nouns)
-    return f"{adjective}{noun}{random.randint(1, 999)}"
-
-
 # Example usage:
 # pawn_position = (0, 0)
 # hero1_position = (0, 0)

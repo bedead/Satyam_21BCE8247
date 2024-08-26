@@ -1,5 +1,6 @@
-import StartGame from "@/components/StartGame";
+import StartGame from "../components/StartGame";
 
+StartGame
 
 export default function Home() {
   return (

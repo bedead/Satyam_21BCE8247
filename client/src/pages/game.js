@@ -1,4 +1,5 @@
 'use client';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import io from 'socket.io-client';
@@ -6,16 +7,17 @@ import io from 'socket.io-client';
 let socket;
 
 const initialBoard = [
-    ['p1', 'p2', 'p3', 'h1', 'h2'],
+    ['A-p1', 'A-p2', 'A-p3', 'A-h1', 'A-h2'],
     [null, null, null, null, null],
     [null, null, null, null, null],
-    ['p1', 'p2', 'p3', 'h1', 'h2'],
+    [null, null, null, null, null],
+    ['B-p1', 'B-p2', 'B-p3', 'B-h1', 'B-h2'],
 ];
 
 const Game = () => {
     const [status, setStatus] = useState('');
-    const [players, setPlayers] = useState(2);
     const [currentTurn, setCurrentTurn] = useState('');
+    const [players, setPlayers] = useState();
     const [myTurn, setMyTurn] = useState(false);
     const [board, setBoard] = useState(initialBoard);
     const [opponentUsername, setOpponentUsername] = useState('');
@@ -23,66 +25,66 @@ const Game = () => {
     const router = useRouter();
 
     useEffect(() => {
+        const savedUsername = sessionStorage.getItem('username');
+        setUsername(savedUsername);
+
         socket = io('http://localhost:5000', {
-            transports: ['websocket'],
+            reconnectionAttempts: 5, // Retry connection attempts
+            timeout: 10000, // Timeout after 10 seconds
         });
 
-        socket.on('connect', () => {
-            console.log('Connected to server');
-            socket.emit('get_player_data', { room: 12 });
-        });
+        socket.emit('get_room_data', { room: 12 });
+        console.log("called");
 
-        socket.on('game_data', (data) => {
-            // Ensure username is set before processing the game data
-            console.log("here");
-            const playerUsername = username || data.player_usernames.find(user => user === username);
-            setUsername(playerUsername);
+        socket.on('room_data', (data) => {
+            console.log('Room data received:', data.game_room);
+            // sessionStorage.setItem("room_data", data.game_room);
 
-            const opponent = data.player_usernames.find(user => user !== playerUsername);
-            setOpponentUsername(opponent);
+            if (data.game_room) {
+                // setStatus(data.message);
+                // console.log(data.message);
 
-            setCurrentTurn(data.current_turn);
-            setMyTurn(data.current_turn === playerUsername);
+                // // Handle the game room data
+                // const playerUsername = username || data.game_room.player_usernames.find(user => user === username);
+                // setUsername(playerUsername);
+                // sessionStorage.setItem('username', playerUsername);
 
-            if (data.current_turn === undefined) {
-                setStatus('Waiting for opponent to join or make a move...');
+                // const opponent = data.game_room.player_usernames.find(user => user !== playerUsername);
+                // setOpponentUsername(opponent);
+
+                // setCurrentTurn(data.game_room.current_turn);
+                // setMyTurn(data.game_room.current_turn === playerUsername);
+
+                // if (!data.game_room.current_turn) {
+                //     setStatus('Waiting for opponent to join or make a move...');
+                // } else {
+                //     setStatus(data.game_room.current_turn === playerUsername ? "It's your turn" : `It's ${data.game_room.current_turn}'s turn`);
+                // }
             } else {
-                setStatus(data.current_turn === playerUsername ? "It's your turn" : `It's ${data.current_turn}'s turn`);
+                console.log('No game_room data received');
+                setStatus('Room not found.');
             }
-
-            console.log(username);
-            console.log(opponentUsername);
         });
 
         socket.on('move_made', (data) => {
-            setStatus(`${data.player} made a move: ${data.move}`);
-            setCurrentTurn(data.current_turn);
-            setMyTurn(data.current_turn === username);
-            setBoard(data.updated_board);
+            // Handle move made event
         });
 
         socket.on('player_disconnected', (data) => {
             setStatus(data.message);
-            setPlayers(data.players_left);
+            setPlayers(data.cur_data.players);
 
-            if (data.players_left < 2) {
+            if (data.cur_data.players < 2) {
                 setTimeout(() => {
                     router.push('/');
                 }, 2000);
             }
         });
 
-        socket.on('disconnect', () => {
-            setStatus('Disconnected from server.');
-        });
-
         return () => {
-            socket.off('game_data');
-            socket.off('move_made');
-            socket.off('player_disconnected');
             socket.disconnect();
         };
-    }, [username]); // Ensure useEffect runs when username changes
+    }, []);
 
     const handleMove = (row, col) => {
         if (!myTurn) {
@@ -90,7 +92,6 @@ const Game = () => {
             return;
         }
 
-        // Implement the move logic here
         socket.emit('player_move', {
             player: username,
             move: { row, col },
@@ -101,15 +102,15 @@ const Game = () => {
     };
 
     const handleDisconnect = () => {
-        socket.emit('player_disconnect', {});
+        socket.emit('player_disconnect', { room: 12, username: username });
         setStatus('You have disconnected.');
-        router.push('/');
+        sessionStorage.clear(); // Remove username from localStorage
     };
 
     return (
         <div style={{ textAlign: 'center', marginTop: '50px' }}>
             <h1>Game Interface</h1>
-            <p>Players in the game: {players}</p>
+            <p>Your username is {username}</p>
             <p>{status}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 60px)', gap: '5px', justifyContent: 'center' }}>
                 {board.map((row, rowIndex) => (
